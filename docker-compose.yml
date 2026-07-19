@@ -1,0 +1,45 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: email-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-emailservice}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-emailservice-dev}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  emailservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: emailservice:latest
+    container_name: emailservice
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-emailservice}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-emailservice-dev}
+      EMAIL_QUEUE: ${EMAIL_QUEUE:-email.verification.queue}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-mitchell.kevinn@gmail.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?Set MAIL_PASSWORD before starting Docker Compose}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      EMAIL_FROM: ${EMAIL_FROM:-mitchell.kevinn@gmail.com}
+
+volumes:
+  rabbitmq_data:
